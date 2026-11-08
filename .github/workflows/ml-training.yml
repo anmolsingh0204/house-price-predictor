@@ -1,0 +1,204 @@
+name: ML Model Training Pipeline
+
+on:
+  schedule:
+    # Run weekly on Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      n_samples:
+        description: 'Number of samples to generate'
+        required: false
+        default: '50000'
+        type: string
+      force_retrain:
+        description: 'Force retrain even if model exists'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Data generation and validation
+  data-generation:
+    name: Generate & Validate Data
+    runs-on: ubuntu-latest
+    outputs:
+      data-path: ${{ steps.data-path.outputs.path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate dataset
+        id: generate
+        run: |
+          N_SAMPLES=${{ github.event.inputs.n_samples || '50000' }}
+          python src/data/generate_dataset.py
+          echo "Generated $N_SAMPLES samples"
+
+      - name: Validate data quality
+        run: |
+          python -c "
+import pandas as pd
+df = pd.read_csv('data/housing_data.csv')
+print(f'Shape: {df.shape}')
+print(f'Columns: {list(df.columns)}')
+print(f'Price stats:')
+print(df['price'].describe())
+print(f'Missing values: {df.isnull().sum().sum()}')
+assert df.isnull().sum().sum() == 0, 'Data has missing values!'
+assert len(df) > 10000, 'Not enough samples!'
+assert df['price'].min() > 0, 'Invalid prices!'
+print('Data validation passed!')
+"
+
+      - name: Upload dataset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: housing-dataset
+          path: |
+            data/housing_data.csv
+            data/train_data.csv
+            data/test_data.csv
+            data/dataset_metadata.json
+          retention-days: 30
+
+  # Model training with hyperparameter tuning
+  model-training:
+    name: Train & Evaluate Model
+    needs: data-generation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: housing-dataset
+          path: data/
+
+      - name: Train model
+        run: python src/ml/train_model.py
+
+      - name: Evaluate model performance
+        run: |
+          python -c "
+import json
+with open('models/model_metrics.json') as f:
+    metrics = json.load(f)
+
+test_metrics = metrics['test_metrics']
+print(f'Test R²: {test_metrics[\"r2\"]:.4f}')
+print(f'Test RMSE: {test_metrics[\"rmse\"]:.2f}')
+print(f'Test MAE: {test_metrics[\"mae\"]:.2f}')
+print(f'Test MAPE: {test_metrics[\"mape\"]:.4f}')
+
+# Quality gates
+assert test_metrics['r2'] > 0.90, f'R² below threshold: {test_metrics[\"r2\"]}'
+assert test_metrics['rmse'] < 80000, f'RMSE above threshold: {test_metrics[\"rmse\"]}'
+assert test_metrics['mape'] < 0.15, f'MAPE above threshold: {test_metrics[\"mape\"]}'
+print('All quality gates passed!')
+"
+
+      - name: Compare with previous model
+        if: github.event.inputs.force_retrain != 'true'
+        run: |
+          echo "Comparing with previous model version..."
+          # In a real scenario, you'd download the previous model from model registry
+          # and compare metrics
+          echo "Model comparison placeholder - integrate with MLflow or similar"
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: |
+            models/house_price_model.pkl
+            models/preprocessor.pkl
+            models/model_metrics.json
+            models/feature_importance.json
+          retention-days: 90
+
+  # Model registry and deployment preparation
+  model-registry:
+    name: Register Model
+    needs: model-training
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: models/
+
+      - name: Validate model files
+        run: |
+          ls -la models/
+          python -c "
+import joblib
+model = joblib.load('models/house_price_model.pkl')
+preprocessor = joblib.load('models/preprocessor.pkl')
+print('Model and preprocessor loaded successfully')
+print(f'Model type: {type(model)}')
+"
+
+      - name: Push to model registry
+        run: |
+          echo "Pushing to model registry..."
+          # Integrate with MLflow, Weights & Biases, or your model registry
+          # Example: mlflow.pyfunc.log_model(...)
+          # Example: wandb.log_artifact(...)
+
+      - name: Tag model version
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M%S)
+          echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
+          git tag -a "model-v$VERSION" -m "Model version $VERSION" || true
+          git push origin "model-v$VERSION" || true
+
+  # Notify on completion
+  notify:
+    name: Notify Completion
+    needs: [data-generation, model-training, model-registry]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        run: |
+          STATUS="${{ needs.model-training.result }}"
+          echo "ML Training Pipeline completed with status: $STATUS"
+          if [ "$STATUS" = "success" ]; then
+            echo "✅ Model training successful"
+          else
+            echo "❌ Model training failed"
+          fi
+          # Add Slack, Discord, or email notification here

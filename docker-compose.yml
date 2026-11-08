@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Main API service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # WebSocket service
+  websocket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "8765:8765"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./models:/app/models
+    command: python src/websocket/ws_server.py
+    restart: unless-stopped
+
+  # Model training service (run once)
+  ml-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    command: >
+      sh -c "python src/data/generate_dataset.py &&
+             python src/ml/train_model.py"
+    profiles:
+      - training
+
+  # Development service with hot reload
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"
+      - "8765:8765"
+    environment:
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+      - FLASK_DEBUG=1
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./models:/app/models
+    command: >
+      sh -c "python src/data/generate_dataset.py &&
+             python src/ml/train_model.py &&
+             python src/api/app.py & python src/websocket/ws_server.py"
+    profiles:
+      - dev
+
+  # Test runner
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+    command: pytest src/tests/ -v --cov=src --cov-report=term-missing
+    profiles:
+      - test
+
+networks:
+  default:
+    name: house-price-predictor-network

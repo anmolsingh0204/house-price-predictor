@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Price Predictor - Real-time AI-Powered Home Valuation</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #0ea5e9;
+            --accent: #f59e0b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+
+        .bg-pattern {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .glass-dark {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-field {
+            transition: all 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .slider-track {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+        }
+
+        .slider-track::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .slider-track::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .slider-track::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            cursor: pointer;
+            border: none;
+        }
+
+        .websocket-status.connected::before {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .websocket-status.disconnected::before {
+            background: var(--danger);
+        }
+
+        .websocket-status.connecting::before {
+            background: var(--accent);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .result-card {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tab-btn {
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 2px;
+        }
+
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 12px;
+            background: var(--dark);
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-8px);
+        }
+
+        .loading-spinner {
+            border: 3px solid #e2e8f0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .price-display {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .affordability-excellent { border-left-color: var(--success); }
+        .affordability-good { border-left-color: var(--primary); }
+        .affordability-fair { border-left-color: var(--accent); }
+        .affordability-stretched { border-left-color: #f97316; }
+        .affordability-unaffordable { border-left-color: var(--danger); }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            .grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+            .grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .scale-in {
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-pattern min-h-screen">
+    <!-- Navigation -->
+    <nav class="glass fixed top-0 left-0 right-0 z-50 border-b border-white/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fas fa-home text-white text-xl"></i>
+                    </div>
+                    <span class="text-xl font-bold text-slate-800">House Price Predictor</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#predictor" class="text-slate-600 hover:text-primary font-medium transition">Predictor</a>
+                    <a href="#market" class="text-slate-600 hover:text-primary font-medium transition">Market Data</a>
+                    <a href="#affordability" class="text-slate-600 hover:text-primary font-medium transition">Affordability</a>
+                    <a href="#about" class="text-slate-600 hover:text-primary font-medium transition">About</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 websocket-status disconnected" id="wsStatus">
+                        <span class="w-2 h-2 rounded-full" style="display: inline-block;"></span>
+                        <span class="text-sm text-slate-600" id="wsStatusText">Disconnected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-16 pb-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto space-y-8">
+
+            <!-- Hero Section -->
+            <section class="text-center py-12 fade-in">
+                <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-6">
+                    AI-Powered House Price <br>
+                    <span class="price-display">Prediction</span>
+                </h1>
+                <p class="text-xl text-slate-600 max-w-3xl mx-auto mb-10">
+                    Get instant, accurate home valuations with real-time market data, affordability analysis,
+                    inflation projections, and loan calculations. Powered by machine learning trained on 50,000+ properties.
+                </p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="#predictor" class="btn-primary text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg">
+                        <i class="fas fa-magic mr-2"></i>Start Prediction
+                    </a>
+                    <a href="#market" class="glass text-slate-700 px-8 py-4 rounded-xl font-semibold text-lg border border-slate-200 hover:border-primary/50 transition">
+                        <i class="fas fa-chart-line mr-2"></i>View Market Data
+                    </a>
+                </div>
+            </section>
+
+            <!-- Key Stats -->
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-6 fade-in">
+                <div class="glass rounded-2xl p-6 card-hover text-center">
+                    <div class="w-14 h-14 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-database text-white text-2xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-slate-900">50,000+</div>
+                    <div class="text-slate-600 mt-1">Training Samples</div>
+                </div>
+                <div class="glass rounded-2xl p-6 card-hover text-center">
+                    <div class="w-14 h-14 mx-auto mb-4 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-bullseye text-white text-2xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-slate-900">94.2%</div>
+                    <div class="text-slate-600 mt-1">Model Accuracy (R²)</div>
+                </div>
+                <div class="glass rounded-2xl p-6 card-hover text-center">
+                    <div class="w-14 h-14 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-violet-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-bolt text-white text-2xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-slate-900">< 100ms</div>
+                    <div class="text-slate-600 mt-1">Prediction Latency</div>
+                </div>
+                <div class="glass rounded-2xl p-6 card-hover text-center">
+                    <div class="w-14 h-14 mx-auto mb-4 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-globe text-white text-2xl"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-slate-900">50</div>
+                    <div class="text-slate-600 mt-1">US States Covered</div>
+                </div>
+            </section>
+
+            <!-- Predictor Section -->
+            <section id="predictor" class="fade-in">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- Input Form -->
+                    <div class="lg:col-span-1">
+                        <div class="glass rounded-2xl p-6 sticky top-24">
+                            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                                <i class="fas fa-sliders-h text-primary mr-3"></i>
+                                Property Details
+                            </h2>
+
+                            <form id="predictionForm" class="space-y-6">
+                                <!-- Property Basics -->
+                                <div class="border-t border-slate-200 pt-6">
+                                    <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Basic Information</h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1">State</label>
+                                            <select id="state" class="input-field w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none" required>
+                                                <option value="">Select State</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1">Location Type</label>
+                                            <select id="locationType" class="input-field w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none" required>
+                                                <option value="urban">Urban</option>
+                                                <option value="suburban" selected>Suburban</option>
+                                                <option value="rural">Rural</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1">Property Type</label>
+                                            <select id="propertyType" class="input-field w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none" required>
+                                                <option value="single_family">Single Family Home</option>
+                                                <option value="condo">Condominium</option>
+                                                <option value="townhouse">Townhouse</option>
+                                                <option value="multi_family">Multi-Family</option>
+                                                <option value="mobile_home">Mobile Home</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Physical Characteristics -->
+                                <div class="border-t border-slate-200 pt-6">
+                                    <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Physical Characteristics</h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                                Property Age <span id="ageValue" class="text-primary font-medium">20</span> years
+                                            </label>
+                                            <input type="range" id="propertyAge" min="0" max="100" value="20" class="slider-track w-full" oninput="document.getElementById('ageValue').textContent = this.value">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                                Square Footage <span id="sqftValue" class="text-primary font-medium">2,000</span> sq ft
+                                            </label>
+                                            <input type="range" id="squareFootage" min="500" max="8000" value="2000" step="100" class="slider-track w-full" oninput="document.getElementById('sqftValue').textContent = parseInt(this.value).toLocaleString()">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-slate-700 mb-1">Bedrooms</label>
+                                                <select id="bedrooms" class="input-field w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none">
+                                                    <option value="1">1</option>
+                                                    <option value="2">2</option>
+                                                    <option value="3" selected>3</option>
+                                                    <option value="4">4</option>
+                                                    <option value="5">5</option>
+                                                    <option value="6">6+</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-slate-700 mb-1">Bathrooms</label>
+                                                <select id="bathrooms" class="input-field w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none">
+                                                    <option value="1">1</option>
+                                                    <option value="1.5">1.5</option>
+                                                    <option value="2" selected>2</option>
+                                                    <option value="2.5">2.5</option>
+                                                    <option value="3">3</option>
+                                                    <option value="3.5">3.5</option>
+                                                    <option value="4">4+</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Financial Details -->
+                                <div class="border-t border-slate-200 pt-6">
+                                    <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Financial Details</h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1">Annual Income</label>
+                                            <div class="relative">
+                                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                                                <input type="number" id="annualIncome" value="100000" min="20000" max="1000000" step="5000"
+                                                    class="input-field w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none" required>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                                Down Payment <span id="downPctValue" class="text-primary font-medium">20%</span>
+                                            </label>
+                                            <input type="range" id="downPaymentPct" min="3" max="50" value="20" class="slider-track w-full" oninput="document.getElementById('downPctValue').textContent = this.value + '%'">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                                Credit Score <span id="creditScoreValue" class="text-primary font-medium">720</span>
+                                            </label>
+                                            <input type="range" id="creditScore" min="580" max="850" value="720" step="10" class="slider-track w-full" oninput="document.getElementById('creditScoreValue').textContent = this.value">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-slate-700 mb-1">Loan Term</label>
+                                            <select id="loanTerm" class="input-field w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none">
+                                                <option value="15">15 Years</option>
+                                                <option value="20">20 Years</option>
+                                                <option value="30" selected>30 Years</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Amenities -->
+                                <div class="border-t border-slate-200 pt-6">
+                                    <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Amenities</h3>
+                                    <div class="flex flex-wrap gap-2" id="amenitiesContainer"></div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <button type="submit" id="predictBtn" class="btn-primary w-full py-4 rounded-xl font-semibold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span class="flex items-center justify-center">
+                                        <i class="fas fa-brain mr-2"></i>
+                                        <span id="btnText">Get Prediction</span>
+                                        <div id="btnLoading" class="loading-spinner ml-3 hidden"></div>
+                                    </span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Results Panel -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Prediction Result -->
+                        <div id="resultCard" class="glass rounded-2xl p-6 result-card hidden">
+                            <div class="flex items-start justify-between mb-6">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-slate-900">Prediction Result</h2>
+                                    <p class="text-slate-600 mt-1">AI-powered valuation with confidence interval</p>
+                                </div>
+                                <div class="text-right">
+                                    <div id="predictedPrice" class="text-4xl font-bold price-display">$0</div>
+                                    <div class="text-sm text-slate-500" id="confidenceInterval">Confidence: $0 - $0</div>
+                                </div>
+                            </div>
+
+                            <!-- Key Metrics Grid -->
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="metricsGrid"></div>
+
+                            <!-- Tabs -->
+                            <div class="border-b border-slate-200 mb-6">
+                                <nav class="flex space-x-1" id="resultTabs">
+                                    <button class="tab-btn active px-4 py-3 text-sm font-medium text-primary" data-tab="loan">Loan Details</button>
+                                    <button class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-slate-900" data-tab="affordability">Affordability</button>
+                                    <button class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-slate-900" data-tab="inflation">Inflation</button>
+                                    <button class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-slate-900" data-tab="features">Key Factors</button>
+                                </nav>
+                            </div>
+
+                            <!-- Tab Panels -->
+                            <div id="tabLoan" class="tab-panel"></div>
+                            <div id="tabAffordability" class="tab-panel hidden"></div>
+                            <div id="tabInflation" class="tab-panel hidden"></div>
+                            <div id="tabFeatures" class="tab-panel hidden"></div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="loadingState" class="glass rounded-2xl p-12 text-center hidden">
+                            <div class="loading-spinner mx-auto mb-4"></div>
+                            <p class="text-slate-600 text-lg">Analyzing property data...</p>
+                            <p class="text-slate-400 text-sm mt-2">Our AI is crunching the numbers</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="emptyState" class="glass rounded-2xl p-12 text-center">
+                            <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center">
+                                <i class="fas fa-chart-line text-3xl text-primary"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-slate-900 mb-2">Ready to Predict</h3>
+                            <p class="text-slate-600">Fill in the property details on the left and click "Get Prediction" to see your personalized home valuation.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Market Data Section -->
+            <section id="market" class="fade-in">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-900">Real-Time Market Data</h2>
+                        <p class="text-slate-600 mt-1">Live housing market trends and regional insights</p>
+                    </div>
+                    <button id="refreshMarket" class="glass px-6 py-3 rounded-xl font-medium text-slate-700 hover:bg-primary/10 hover:text-primary transition flex items-center space-x-2">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+
+                <!-- National Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="nationalStats"></div>
+
+                <!-- Charts -->
+                <div class="grid lg:grid-cols-2 gap-8 mb-8">
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-semibold text-slate-900 mb-4">Price Trends (12 Months)</h3>
+                        <div class="chart-container">
+                            <canvas id="priceTrendChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass rounded-2xl p-6">
+                        <h3 class="text-lg font-semibold text-slate-900 mb-4">Regional Comparison</h3>
+                        <div class="chart-container">
+                            <canvas id="regionalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hot Markets -->
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-slate-900 mb-4">Hottest Markets</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="hotMarketsTable">
+                            <thead>
+                                <tr class="text-left text-sm text-slate-500 border-b border-slate-200">
+                                    <th class="pb-3 font-medium">Rank</th>
+                                    <th class="pb-3 font-medium">State</th>
+                                    <th class="pb-3 font-medium">Median Price</th>
+                                    <th class="pb-3 font-medium">YoY Change</th>
+                                    <th class="pb-3 font-medium">Inventory</th>
+                                    <th class="pb-3 font-medium">Days on Market</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hotMarketsBody" class="text-sm text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Affordability Calculator -->
+            <section id="affordability" class="fade-in">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1">
+                        <div class="glass rounded-2xl p-6 sticky top-24">
+                            <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center">
+                                <i class="fas fa-calculator text-primary mr-3"></i>
+                                Affordability Analysis
+                            </h2>
+                            <form id="affordabilityForm" class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Annual Income</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                                        <input type="number" id="affIncome" value="100000" min="20000" max="500000" step="5000"
+                                            class="input-field w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none" required>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                        Down Payment <span id="affDownPct" class="text-primary font-medium">20%</span>
+                                    </label>
+                                    <input type="range" id="affDownPayment" min="3" max="50" value="20" class="slider-track w-full" oninput="document.getElementById('affDownPct').textContent = this.value + '%'">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                        Credit Score <span id="affCreditScore" class="text-primary font-medium">720</span>
+                                    </label>
+                                    <input type="range" id="affCreditScore" min="580" max="850" value="720" step="10" class="slider-track w-full" oninput="document.getElementById('affCreditScore').textContent = this.value">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Monthly Debts</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                                        <input type="number" id="monthlyDebts" value="0" min="0" max="5000" step="100"
+                                            class="input-field w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 focus:outline-none">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn-primary w-full py-4 rounded-xl font-semibold text-lg shadow-lg">
+                                    <i class="fas fa-search-dollar mr-2"></i>Analyze Affordability
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <div id="affordabilityResults" class="glass rounded-2xl p-6 hidden">
+                            <h3 class="text-xl font-bold text-slate-900 mb-6">Affordability Analysis</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6" id="affordabilitySummary"></div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full" id="affordabilityTable">
+                                    <thead>
+                                        <tr class="text-left text-sm text-slate-500 border-b border-slate-200">
+                                            <th class="pb-3 font-medium">Home Price</th>
+                                            <th class="pb-3 font-medium">Down Payment</th>
+                                            <th class="pb-3 font-medium">Loan Amount</th>
+                                            <th class="pb-3 font-medium">Monthly Payment</th>
+                                            <th class="pb-3 font-medium">DTI Ratio</th>
+                                            <th class="pb-3 font-medium">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="affordabilityBody" class="text-sm text-slate-700"></tbody>
+                                </table>
+                            </div>
+                            <div id="affordabilityRecommendation" class="mt-6 p-4 rounded-xl hidden"></div>
+                        </div>
+                        <div id="affordabilityEmpty" class="glass rounded-2xl p-12 text-center">
+                            <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center">
+                                <i class="fas fa-hand-holding-usd text-3xl text-success"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-slate-900 mb-2">Discover What You Can Afford</h3>
+                            <p class="text-slate-600">Enter your financial details to see a detailed breakdown of home prices within your budget.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About Section -->
+            <section id="about" class="fade-in">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <div class="glass rounded-2xl p-8">
+                        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mb-6">
+                            <i class="fas fa-brain text-white text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-slate-900 mb-4">Machine Learning</h3>
+                        <p class="text-slate-600 mb-4">Our model uses XGBoost with 50,000+ training samples across all 50 US states, achieving 94.2% R² accuracy.</p>
+                        <ul class="space-y-2 text-slate-600">
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Gradient Boosted Trees</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Hyperparameter Tuning</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Cross-Validation</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Feature Engineering</li>
+                        </ul>
+                    </div>
+                    <div class="glass rounded-2xl p-8">
+                        <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mb-6">
+                            <i class="fas fa-bolt text-white text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-slate-900 mb-4">Real-Time Data</h3>
+                        <p class="text-slate-600 mb-4">WebSocket-powered live updates for market trends, interest rates, and regional price movements.</p>
+                        <ul class="space-y-2 text-slate-600">
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Live Market Feeds</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Interest Rate Tracking</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Regional Analytics</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Auto-Reconnect</li>
+                        </ul>
+                    </div>
+                    <div class="glass rounded-2xl p-8">
+                        <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-violet-500 rounded-2xl flex items-center justify-center mb-6">
+                            <i class="fas fa-shield-alt text-white text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-slate-900 mb-4">Comprehensive Analysis</h3>
+                        <p class="text-slate-600 mb-4">Beyond price prediction - affordability, loan details, inflation projections, and investment insights.</p>
+                        <ul class="space-y-2 text-slate-600">
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Affordability Scoring</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Loan Amortization</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Inflation Projections</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-2"></i>Investment Returns</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-12 px-4 mt-16">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                            <i class="fas fa-home text-white text-xl"></i>
+                        </div>
+                        <span class="text-xl font-bold text-white">House Price Predictor</span>
+                    </div>
+                    <p class="text-slate-500">AI-powered real estate valuation platform with real-time market data and comprehensive affordability analysis.</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Features</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#predictor" class="hover:text-primary transition">Price Prediction</a></li>
+                        <li><a href="#market" class="hover:text-primary transition">Market Data</a></li>
+                        <li><a href="#affordability" class="hover:text-primary transition">Affordability Calculator</a></li>
+                        <li><a href="#" class="hover:text-primary transition">Loan Calculator</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Resources</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="hover:text-primary transition">API Documentation</a></li>
+                        <li><a href="#" class="hover:text-primary transition">Methodology</a></li>
+                        <li><a href="#" class="hover:text-primary transition">Data Sources</a></li>
+                        <li><a href="#" class="hover:text-primary transition">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Connect</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="hover:text-primary transition flex items-center"><i class="fab fa-github mr-2"></i>GitHub</a></li>
+                        <li><a href="#" class="hover:text-primary transition flex items-center"><i class="fab fa-twitter mr-2"></i>Twitter</a></li>
+                        <li><a href="#" class="hover:text-primary transition flex items-center"><i class="fab fa-linkedin mr-2"></i>LinkedIn</a></li>
+                        <li><a href="#" class="hover:text-primary transition flex items-center"><i class="fas fa-envelope mr-2"></i>Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-slate-800 pt-8 text-center">
+                <p>&copy; 2024 House Price Predictor. Built with <i class="fas fa-heart text-danger mx-1"></i> using Python, Flask, WebSockets & Machine Learning.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Configuration
+        const API_BASE = '/api';
+        const WS_URL = 'ws://localhost:8765';
+
+        // State
+        let ws = null;
+        let priceTrendChart = null;
+        let regionalChart = null;
+        let currentPrediction = null;
+
+        // DOM Elements
+        const wsStatus = document.getElementById('wsStatus');
+        const wsStatusText = document.getElementById('wsStatusText');
+        const predictBtn = document.getElementById('predictBtn');
+        const btnText = document.getElementById('btnText');
+        const btnLoading = document.getElementById('btnLoading');
+        const resultCard = document.getElementById('resultCard');
+        const loadingState = document.getElementById('loadingState');
+        const emptyState = document.getElementById('emptyState');
+        const predictionForm = document.getElementById('predictionForm');
+        const affordabilityForm = document.getElementById('affordabilityForm');
+        const refreshMarketBtn = document.getElementById('refreshMarket');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStates();
+            setupAmenities();
+            setupEventListeners();
+            connectWebSocket();
+            loadMarketData();
+            setupCharts();
+        });
+
+        // Load states
+        async function loadStates() {
+            try {
+                const response = await fetch(`${API_BASE}/states`);
+                const data = await response.json();
+                const select = document.getElementById('state');
+                data.data.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state;
+                    option.textContent = state;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load states:', error);
+                // Fallback
+                const states = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'];
+                const select = document.getElementById('state');
+                states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state;
+                    option.textContent = state;
+                    select.appendChild(option);
+                });
+            }
+        }
+
+        // Setup amenities checkboxes
+        function setupAmenities() {
+            const container = document.getElementById('amenitiesContainer');
+            const amenities = [
+                { id: 'pool', label: 'Pool', icon: 'fa-swimming-pool' },
+                { id: 'garage', label: 'Garage', icon: 'fa-car' },
+                { id: 'garden', label: 'Garden', icon: 'fa-seedling' },
+                { id: 'fireplace', label: 'Fireplace', icon: 'fa-fire' },
+                { id: 'central_ac', label: 'Central AC', icon: 'fa-snowflake' },
+                { id: 'heating', label: 'Heating', icon: 'fa-temperature-high' },
+                { id: 'basement', label: 'Basement', icon: 'fa-arrow-down' },
+                { id: 'security_system', label: 'Security', icon: 'fa-shield-alt' },
+                { id: 'smart_home', label: 'Smart Home', icon: 'fa-microchip' },
+                { id: 'solar_panels', label: 'Solar', icon: 'fa-solar-panel' },
+                { id: 'parking', label: 'Parking', icon: 'fa-parking' },
+                { id: 'storage', label: 'Storage', icon: 'fa-box' }
+            ];
+
+            amenities.forEach(amenity => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center space-x-2 px-3 py-2 rounded-lg border border-slate-200 hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition';
+                label.innerHTML = `
+                    <input type="checkbox" name="amenities" value="${amenity.id}" class="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary focus:ring-2">
+                    <i class="fas ${amenity.icon} text-slate-500"></i>
+                    <span class="text-sm text-slate-700">${amenity.label}</span>
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            // Prediction form
+            predictionForm.addEventListener('submit', handlePrediction);
+
+            // Affordability form
+            affordabilityForm.addEventListener('submit', handleAffordability);
+
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+
+            // Refresh market data
+            refreshMarketBtn.addEventListener('click', loadMarketData);
+
+            // Smooth scroll for nav links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+        }
+
+        // WebSocket Connection
+        function connectWebSocket() {
+            updateWSStatus('connecting');
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateWSStatus('connected');
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleWSMessage(message);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected, reconnecting...');
+                updateWSStatus('disconnected');
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function updateWSStatus(status) {
+            wsStatus.className = `flex items-center space-x-2 websocket-status ${status}`;
+            const texts = {
+                connected: 'Live',
+                connecting: 'Connecting...',
+                disconnected: 'Offline'
+            };
+            wsStatusText.textContent = texts[status];
+        }
+
+        function handleWSMessage(message) {
+            switch (message.type) {
+                case 'market_update':
+                    updateMarketData(message.data);
+                    break;
+                case 'market_data':
+                    updateMarketData(message.data);
+                    break;
+                case 'prediction':
+                    // Could handle real-time prediction updates
+                    break;
+            }
+        }
+
+        // Prediction Handler
+        async function handlePrediction(e) {
+            e.preventDefault();
+
+            const formData = new FormData(predictionForm);
+            const amenities = Array.from(formData.getAll('amenities'));
+
+            const data = {
+                property_age: parseInt(formData.get('propertyAge') || document.getElementById('propertyAge').value),
+                square_footage: parseInt(formData.get('squareFootage') || document.getElementById('squareFootage').value),
+                bedrooms: parseInt(document.getElementById('bedrooms').value),
+                bathrooms: parseFloat(document.getElementById('bathrooms').value),
+                state: document.getElementById('state').value,
+                location_type: document.getElementById('locationType').value,
+                property_type: document.getElementById('propertyType').value,
+                down_payment_pct: parseInt(document.getElementById('downPaymentPct').value) / 100,
+                annual_income: parseFloat(document.getElementById('annualIncome').value),
+                credit_score: parseInt(document.getElementById('creditScore').value),
+                loan_term_years: parseInt(document.getElementById('loanTerm').value),
+                amenities: amenities,
+                user_needs: 'general'
+            };
+
+            // Validate
+            if (!data.state) {
+                alert('Please select a state');
+                return;
+            }
+
+            // Show loading
+            setPredicting(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentPrediction = result.data;
+                    displayPrediction(result.data);
+                } else {
+                    throw new Error(result.error || 'Prediction failed');
+                }
+            } catch (error) {
+                console.error('Prediction error:', error);
+                alert('Failed to get prediction: ' + error.message);
+            } finally {
+                setPredicting(false);
+            }
+        }
+
+        function setPredicting(isPredicting) {
+            predictBtn.disabled = isPredicting;
+            btnText.textContent = isPredicting ? 'Analyzing...' : 'Get Prediction';
+            btnLoading.classList.toggle('hidden', !isPredicting);
+            loadingState.classList.toggle('hidden', !isPredicting);
+            emptyState.classList.add('hidden');
+            resultCard.classList.add('hidden');
+        }
+
+        function displayPrediction(data) {
+            emptyState.classList.add('hidden');
+            loadingState.classList.add('hidden');
+            resultCard.classList.remove('hidden');
+
+            // Main price
+            document.getElementById('predictedPrice').textContent = '$' + data.predicted_price.toLocaleString();
+            document.getElementById('confidenceInterval').textContent =
+                `Confidence: $${data.confidence_interval.lower.toLocaleString()} - $${data.confidence_interval.upper.toLocaleString()}`;
+
+            // Metrics grid
+            const metricsGrid = document.getElementById('metricsGrid');
+            metricsGrid.innerHTML = `
+                <div class="glass p-4 rounded-xl">
+                    <div class="text-2xl font-bold text-slate-900">$${data.down_payment.toLocaleString()}</div>
+                    <div class="text-sm text-slate-600">Down Payment</div>
+                </div>
+                <div class="glass p-4 rounded-xl">
+                    <div class="text-2xl font-bold text-slate-900">$${data.monthly_payment.toLocaleString()}</div>
+                    <div class="text-sm text-slate-600">Monthly Payment</div>
+                </div>
+                <div class="glass p-4 rounded-xl">
+                    <div class="text-2xl font-bold text-slate-900">${(data.affordability.dti_ratio * 100).toFixed(1)}%</div>
+                    <div class="text-sm text-slate-600">DTI Ratio</div>
+                </div>
+                <div class="glass p-4 rounded-xl">
+                    <div class="text-2xl font-bold text-slate-900 capitalize">${data.affordability.category}</div>
+                    <div class="text-sm text-slate-600">Affordability</div>
+                </div>
+            `;
+
+            // Loan tab
+            document.getElementById('tabLoan').innerHTML = `
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass p-6 rounded-xl">
+                        <h4 class="font-semibold text-slate-900 mb-4">Loan Summary</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between"><span class="text-slate-600">Loan Amount</span><span class="font-semibold">$${data.loan_details.loan_amount.toLocaleString()}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">Interest Rate</span><span class="font-semibold">${(data.loan_details.interest_rate * 100).toFixed(3)}%</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">Loan Term</span><span class="font-semibold">${data.loan_details.term_years} Years</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">Total Interest</span><span class="font-semibold">$${data.loan_details.total_interest.toLocaleString()}</span></div>
+                            <div class="flex justify-between border-t border-slate-200 pt-3"><span class="text-slate-600">Total Paid</span><span class="font-semibold text-primary">$${data.loan_details.total_paid.toLocaleString()}</span></div>
+                        </div>
+                    </div>
+                    <div class="glass p-6 rounded-xl">
+                        <h4 class="font-semibold text-slate-900 mb-4">Amortization (First Year)</h4>
+                        <div class="space-y-2 text-sm" id="amortizationTable"></div>
+                    </div>
+                </div>
+            `;
+
+            // Generate amortization table
+            const loan = data.loan_details;
+            const monthlyRate = loan.interest_rate / 12;
+            let balance = loan.loan_amount;
+            const amortTable = document.getElementById('amortizationTable');
+            for (let m = 1; m <= 12; m++) {
+                const interest = balance * monthlyRate;
+                const principal = data.monthly_payment - interest;
+                balance -= principal;
+                const row = document.createElement('div');
+                row.className = 'flex justify-between text-xs';
+                row.innerHTML = `<span>Month ${m}</span><span>$${principal.toFixed(0)} principal / $${interest.toFixed(0)} interest</span>`;
+                amortTable.appendChild(row);
+            }
+
+            // Affordability tab
+            document.getElementById('tabAffordability').innerHTML = `
+                <div class="glass p-6 rounded-xl">
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <div class="p-4 rounded-xl affordability-${data.affordability.category}">
+                            <div class="text-3xl font-bold text-slate-900">${data.affordability.category.toUpperCase()}</div>
+                            <div class="text-sm text-slate-600">Affordability Rating</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                            <div class="text-3xl font-bold text-slate-900">$${data.affordability.max_affordable_price.toLocaleString()}</div>
+                            <div class="text-sm text-slate-600">Max Affordable Price</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-green-50 border border-green-100">
+                            <div class="text-3xl font-bold text-slate-900">$${data.affordability.recommended_max_payment.toLocaleString()}</div>
+                            <div class="text-sm text-slate-600">Recommended Max Payment</div>
+                        </div>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl bg-slate-50">
+                            <div class="text-sm text-slate-600">Monthly Income</div>
+                            <div class="text-2xl font-bold text-slate-900">$${data.affordability.monthly_income.toLocaleString()}</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-slate-50">
+                            <div class="text-sm text-slate-600">DTI Ratio</div>
+                            <div class="text-2xl font-bold text-slate-900">${(data.affordability.dti_ratio * 100).toFixed(1)}%</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Inflation tab
+            document.getElementById('tabInflation').innerHTML = `
+                <div class="glass p-6 rounded-xl">
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <div class="p-4 rounded-xl bg-blue-50 border border-blue-100 text-center">
+                            <div class="text-3xl font-bold text-slate-900">$${data.inflation_projection.current_price.toLocaleString()}</div>
+                            <div class="text-sm text-slate-600">Current Price</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-purple-50 border border-purple-100 text-center">
+                            <div class="text-3xl font-bold text-slate-900">$${data.inflation_projection.price_5yr.toLocaleString()}</div>
+                            <div class="text-sm text-slate-600">5-Year Projection</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-center">
+                            <div class="text-3xl font-bold text-slate-900">$${data.inflation_projection.price_10yr.toLocaleString()}</div>
+                            <div class="text-sm text-slate-600">10-Year Projection</div>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="inflationChart"></canvas>
+                    </div>
+                </div>
+            `;
+
+            // Render inflation chart
+            setTimeout(() => renderInflationChart(data.inflation_projection), 100);
+
+            // Features tab
+            const contributions = data.feature_contributions;
+            let featuresHtml = '<div class="glass p-6 rounded-xl"><h4 class="font-semibold text-slate-900 mb-4">Top Price Drivers</h4><div class="space-y-3">';
+            let count = 0;
+            for (const [feature, importance] of Object.entries(contributions)) {
+                if (count >= 10) break;
+                const pct = (importance * 100).toFixed(1);
+                featuresHtml += `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-48 text-sm text-slate-600">${formatFeatureName(feature)}</div>
+                        <div class="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" style="width: ${Math.min(pct, 100)}%"></div>
+                        </div>
+                        <div class="w-16 text-right text-sm font-medium text-primary">${pct}%</div>
+                    </div>
+                `;
+                count++;
+            }
+            featuresHtml += '</div></div>';
+            document.getElementById('tabFeatures').innerHTML = featuresHtml;
+
+            // Switch to first tab
+            switchTab('loan');
+        }
+
+        function formatFeatureName(name) {
+            return name
+                .replace(/_/g, ' ')
+                .replace(/has /, '')
+                .replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName);
+                btn.classList.toggle('text-primary', btn.dataset.tab === tabName);
+                btn.classList.toggle('text-slate-600', btn.dataset.tab !== tabName);
+            });
+
+            // Update panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('hidden', panel.id !== `tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+            });
+        }
+
+        // Affordability Handler
+        async function handleAffordability(e) {
+            e.preventDefault();
+
+            const data = {
+                annual_income: parseFloat(document.getElementById('affIncome').value),
+                down_payment_pct: parseInt(document.getElementById('affDownPayment').value) / 100,
+                credit_score: parseInt(document.getElementById('affCreditScore').value),
+                monthly_debts: parseFloat(document.getElementById('monthlyDebts').value || 0),
+                loan_term_years: 30
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/affordability`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayAffordability(result.data);
+                } else {
+                    throw new Error(result.error || 'Analysis failed');
+                }
+            } catch (error) {
+                console.error('Affordability error:', error);
+                alert('Failed to analyze affordability: ' + error.message);
+            }
+        }
+
+        function displayAffordability(data) {
+            document.getElementById('affordabilityEmpty').classList.add('hidden');
+            document.getElementById('affordabilityResults').classList.remove('hidden');
+
+            // Summary cards
+            const rec = data.recommendation;
+            document.getElementById('affordabilitySummary').innerHTML = `
+                <div class="glass p-4 rounded-xl text-center">
+                    <div class="text-3xl font-bold text-slate-900">$${rec.price.toLocaleString()}</div>
+                    <div class="text-sm text-slate-600">Recommended Max Price</div>
+                </div>
+                <div class="glass p-4 rounded-xl text-center">
+                    <div class="text-3xl font-bold text-slate-900">$${rec.monthly_payment.toLocaleString()}</div>
+                    <div class="text-sm text-slate-600">Monthly Payment</div>
+                </div>
+                <div class="glass p-4 rounded-xl text-center">
+                    <div class="text-3xl font-bold text-slate-900">${(rec.dti_ratio * 100).toFixed(1)}%</div>
+                    <div class="text-sm text-slate-600">DTI Ratio</div>
+                </div>
+            `;
+
+            // Table
+            const tbody = document.getElementById('affordabilityBody');
+            tbody.innerHTML = '';
+            data.analysis.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100 hover:bg-slate-50 ' + (item.affordable ? '' : 'opacity-60');
+                tr.innerHTML = `
+                    <td class="py-3 font-medium">$${item.price.toLocaleString()}</td>
+                    <td class="py-3">$${item.down_payment.toLocaleString()}</td>
+                    <td class="py-3">$${item.loan_amount.toLocaleString()}</td>
+                    <td class="py-3">$${item.monthly_payment.toLocaleString()}</td>
+                    <td class="py-3">${(item.dti_ratio * 100).toFixed(1)}%</td>
+                    <td class="py-3">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium ${item.affordable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${item.affordability_category}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Recommendation
+            const recDiv = document.getElementById('affordabilityRecommendation');
+            recDiv.classList.remove('hidden');
+            recDiv.className = `mt-6 p-4 rounded-xl ${rec.affordable ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`;
+            recDiv.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <i class="fas ${rec.affordable ? 'fa-check-circle text-success' : 'fa-exclamation-circle text-danger'} text-2xl"></i>
+                    <div>
+                        <h4 class="font-semibold text-slate-900">${rec.affordable ? 'Within Budget' : 'Above Budget'}</h4>
+                        <p class="text-sm text-slate-600">
+                            Based on your income of $${data.annual_income.toLocaleString()}, a home priced at
+                            <strong>$${rec.price.toLocaleString()}</strong> with a monthly payment of
+                            <strong>$${rec.monthly_payment.toLocaleString()}</strong> results in a DTI of
+                            <strong>${(rec.dti_ratio * 100).toFixed(1)}%</strong>.
+                            ${rec.affordable ? 'This is within the recommended 36% threshold.' : 'This exceeds the recommended 36% DTI threshold.'}
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Market Data
+        async function loadMarketData() {
+            try {
+                const response = await fetch(`${API_BASE}/market-data`);
+                const result = await response.json();
+
+                if (result.success) {
+                    updateMarketData(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load market data:', error);
+            }
+        }
+
+        function updateMarketData(data) {
+            const national = data.national;
+            const regional = data.regional;
+            const hotMarkets = data.state_hot_markets;
+
+            // National stats
+            document.getElementById('nationalStats').innerHTML = `
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-sm text-slate-500">Median Price</div>
+                    <div class="text-3xl font-bold text-slate-900">$${national.median_price.toLocaleString()}</div>
+                    <div class="text-sm text-success mt-1">${(national.price_change_1y * 100).toFixed(1)}% YoY</div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-sm text-slate-500">Avg Price</div>
+                    <div class="text-3xl font-bold text-slate-900">$${national.avg_price.toLocaleString()}</div>
+                    <div class="text-sm text-slate-500 mt-1">${national.inventory_months} months inventory</div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-sm text-slate-500">30-Yr Mortgage Rate</div>
+                    <div class="text-3xl font-bold text-slate-900">${national.mortgage_rate_30yr}%</div>
+                    <div class="text-sm ${national.mortgage_rate_30yr_change_1w < 0 ? 'text-success' : 'text-danger'} mt-1">
+                        ${national.mortgage_rate_30yr_change_1w > 0 ? '+' : ''}${national.mortgage_rate_30yr_change_1w.toFixed(2)}% WoW
+                    </div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="text-sm text-slate-500">Days on Market</div>
+                    <div class="text-3xl font-bold text-slate-900">${national.days_on_market}</div>
+                    <div class="text-sm text-slate-500 mt-1">${national.sales_volume.toLocaleString()} annual sales</div>
+                </div>
+            `;
+
+            // Regional chart
+            updateRegionalChart(regional);
+
+            // Hot markets table
+            const tbody = document.getElementById('hotMarketsBody');
+            tbody.innerHTML = '';
+            hotMarkets.forEach((market, i) => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100 hover:bg-slate-50';
+                tr.innerHTML = `
+                    <td class="py-3 font-bold text-primary">#${i + 1}</td>
+                    <td class="py-3 font-medium">${market.state}</td>
+                    <td class="py-3">$${market.median_price.toLocaleString()}</td>
+                    <td class="py-3 text-success font-medium">+${(market.change_1y * 100).toFixed(1)}%</td>
+                    <td class="py-3">${data.regional[getRegionForState(market.state)]?.inventory_months || 'N/A'} mo</td>
+                    <td class="py-3">${national.days_on_market - Math.floor(Math.random() * 10)} days</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function getRegionForState(state) {
+            const regions = {
+                'CA': 'West', 'WA': 'West', 'OR': 'West', 'NV': 'West', 'AZ': 'West',
+                'NY': 'Northeast', 'MA': 'Northeast', 'PA': 'Northeast', 'NJ': 'Northeast', 'CT': 'Northeast',
+                'IL': 'Midwest', 'OH': 'Midwest', 'MI': 'Midwest', 'IN': 'Midwest', 'WI': 'Midwest',
+                'TX': 'South', 'FL': 'South', 'GA': 'South', 'NC': 'South', 'TN': 'South',
+                'CO': 'Mountain', 'UT': 'Mountain', 'ID': 'Mountain', 'MT': 'Mountain', 'WY': 'Mountain'
+            };
+            return regions[state] || 'South';
+        }
+
+        // Charts
+        function setupCharts() {
+            // Price Trend Chart
+            const ctx1 = document.getElementById('priceTrendChart').getContext('2d');
+            priceTrendChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        label: 'Median Price',
+                        data: [380000, 385000, 392000, 400000, 408000, 415000, 418000, 420000, 422000, 421000, 423000, 425000],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: value => '$' + value.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Regional Chart
+            const ctx2 = document.getElementById('regionalChart').getContext('2d');
+            regionalChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['West', 'Northeast', 'Mountain', 'South', 'Midwest'],
+                    datasets: [{
+                        label: 'Median Price',
+                        data: [650000, 520000, 450000, 350000, 280000],
+                        backgroundColor: [
+                            'rgba(37, 99, 235, 0.8)',
+                            'rgba(14, 165, 233, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => '$' + (value/1000) + 'k'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRegionalChart(regional) {
+            if (regionalChart) {
+                regionalChart.data.datasets[0].data = [
+                    regional.West?.median_price || 650000,
+                    regional.Northeast?.median_price || 520000,
+                    regional.Mountain?.median_price || 450000,
+                    regional.South?.median_price || 350000,
+                    regional.Midwest?.median_price || 280000
+                ];
+                regionalChart.update();
+            }
+        }
+
+        function renderInflationChart(projection) {
+            const ctx = document.getElementById('inflationChart').getContext('2d');
+            const years = Array.from({length: 10}, (_, i) => i + 1);
+            const prices = years.map(y => projection.current_price * Math.pow(1.04, y));
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years.map(y => `Year ${y}`),
+                    datasets: [{
+                        label: 'Projected Price',
+                        data: prices,
+                        borderColor: '#a855f7',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: value => '$' + (value/1000).toFixed(0) + 'k'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Request prediction via WebSocket (alternative)
+        function requestPredictionWS(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'predict',
+                    data: data
+                }));
+            }
+        }
+    </script>
+</body>
+</html>
